@@ -1696,57 +1696,10 @@ $("authLogout").onclick=async()=>{
   location.reload();
 };
 
-// iPhone/WebKit workaround:
-// On the affected iPhone, GET requests carrying Authorization: Bearer hang,
-// while the same REST request with only the publishable apikey succeeds quickly.
-// The project's current RLS already allows this public SELECT, so we keep the
-// user_id filter in the URL and use this read-only path for playlist metadata.
-async function publicRest(table, params){
-  const qs=new URLSearchParams(params||{});
-  const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${qs.toString()}`,{
-    method:"GET",
-    cache:"no-store",
-    headers:{apikey:SUPABASE_KEY,Accept:"application/json"}
-  });
-  if(!r.ok){
-    const txt=await r.text().catch(()=>"");
-    throw new Error(`Supabase ${table} ${r.status}${txt?": "+txt.slice(0,180):""}`);
-  }
-  return await r.json();
-}
-
-async function publicPlaylistRows(){
-  if(!user?.id) throw new Error("SESSION ABSENTE");
-  return await publicRest("playlists",{
-    select:"id,name,cover_url,is_public,share_code,source_playlist_id,created_at,user_id",
-    user_id:`eq.${user.id}`,
-    order:"created_at.asc"
-  });
-}
-
-async function publicTrackRows(){
-  if(!user?.id) throw new Error("SESSION ABSENTE");
-  return await publicRest("tracks",{
-    select:"id,name,storage_path,duration,created_at,user_id",
-    user_id:`eq.${user.id}`,
-    order:"created_at.asc"
-  });
-}
-
-async function publicPlaylistTrackRows(playlistIds){
-  if(!playlistIds?.length)return [];
-  return await publicRest("playlist_tracks",{
-    select:"playlist_id,track_id,position",
-    playlist_id:`in.(${playlistIds.join(",")})`,
-    order:"position.asc"
-  });
-}
-
 async function ensureDefaultPlaylists(){
-  const data=await publicPlaylistRows();
+  const {data,error}=await sb.from("playlists").select("id,name,cover_url,is_public,share_code,source_playlist_id,created_at").eq("user_id",user.id).order("created_at",{ascending:true});
+  if(error)throw error;
   if(data.length===0){
-    // Creation still uses the authenticated Supabase client. If this device
-    // blocks Authorization requests, the existing library remains usable.
     const rows=[1,2,3,4].map((_,i)=>({user_id:user.id,name:"Playlist "+(i+1)}));
     const {error:e}=await sb.from("playlists").insert(rows);
     if(e)throw e;
@@ -1754,30 +1707,43 @@ async function ensureDefaultPlaylists(){
 }
 
 async function loadPlaylists(){
-  // Same key-only REST path for iPhone: Authorization-bearing requests hang.
-  const rows=await publicPlaylistRows();
+  const {data,error}=await sb.from("playlists")
+    .select("id,name,cover_url,is_public,share_code,source_playlist_id,created_at")
+    .eq("user_id",user.id)
+    .order("created_at",{ascending:true});
+  if(error)throw error;
+
+  const rows=data||[];
   const sourceIds=[...new Set(rows.filter(p=>p.source_playlist_id).map(p=>p.source_playlist_id))];
   const allPlaylistIds=[...new Set(rows.map(p=>p.source_playlist_id||p.id))];
 
   let sourceMap=new Map();
   if(sourceIds.length){
-    const src=await publicRest("playlists",{
-      select:"id,name,cover_url,is_public,share_code",
-      id:`in.(${sourceIds.join(",")})`
-    });
+    const {data:src,error:srcError}=await sb.from("playlists")
+      .select("id,name,cover_url,is_public,share_code")
+      .in("id",sourceIds);
+    if(srcError)throw srcError;
     sourceMap=new Map((src||[]).map(p=>[p.id,p]));
   }
 
-  const linkRows=await publicPlaylistTrackRows(allPlaylistIds);
+  let linkRows=[];
+  if(allPlaylistIds.length){
+    const {data:pt,error:ptError}=await sb.from("playlist_tracks")
+      .select("playlist_id,track_id,position")
+      .in("playlist_id",allPlaylistIds)
+      .order("position",{ascending:true});
+    if(ptError)throw ptError;
+    linkRows=pt||[];
+  }
 
   const ids=[...new Set(linkRows.map(x=>x.track_id))];
   const known=new Map(tracks.map(t=>[t.id,t]));
   const missing=ids.filter(id=>!known.has(id));
   if(missing.length){
-    const td=await publicRest("tracks",{
-      select:"id,name,storage_path,duration,created_at,user_id",
-      id:`in.(${missing.join(",")})`
-    });
+    const {data:td,error:te}=await sb.from("tracks")
+      .select("id,name,storage_path,duration,created_at,user_id")
+      .in("id",missing);
+    if(te)throw te;
     for(const t of (td||[])){
       known.set(t.id,{...t,url:sb.storage.from("audio").getPublicUrl(t.storage_path).data.publicUrl,date:new Date(t.created_at).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})});
     }
@@ -1808,7 +1774,11 @@ async function loadPlaylists(){
 }
 
 async function loadTracks(){
-  const data=await publicTrackRows();
+  const {data,error}=await sb.from("tracks")
+    .select("id,name,storage_path,duration,created_at,user_id")
+    .eq("user_id",user.id)
+    .order("created_at",{ascending:true});
+  if(error)throw error;
   tracks=(data||[]).map(t=>({
     ...t,
     // Le bucket audio est public : pas besoin de recréer une URL signée à chaque synchronisation.
@@ -1840,23 +1810,15 @@ async function refreshData({renderUI=true}={}){
 async function startApp(){
   $("authOverlay").style.display="none";
   try{
-    // First render the user's playlists through the apikey-only REST path.
-    // This avoids the Authorization-header timeout found on this iPhone.
     await ensureDefaultPlaylists();
-    const basicRows=await publicPlaylistRows();
-    playlists=(basicRows||[]).map(p=>({...p,cover:p.cover_url||null,tracks:[]}));
+    await loadTracks();
+    await loadPlaylists();
     renderHome();
     showHome();
-
-    // The richer authenticated sync is intentionally backgrounded. If the
-    // device blocks Authorization requests, the home screen still works.
-    loadTracks().then(()=>renderHome()).catch(err=>console.warn("BOB tracks iPhone",err));
-    loadPlaylists().then(()=>renderHome()).catch(err=>console.warn("BOB détails playlists iPhone",err));
     startPlaylistSync();
   }catch(err){
     console.error(err);
-    renderHome();
-    alert("BOB est connecté, mais les playlists n'ont pas pu être chargées.");
+    alert("BOB est connecté, mais le chargement des données a échoué. Vérifie les tables et les règles Supabase.");
   }
 }
 
@@ -1865,11 +1827,13 @@ async function loadSharedPlaylist(code){
   if(!cleanCode)return false;
   const {data:p,error}=await sb.from("playlists").select("id,name,cover_url,is_public,share_code").eq("share_code",cleanCode).eq("is_public",true).maybeSingle();
   if(error||!p){ console.error(error); alert("Playlist introuvable ou privée."); return false; }
-  const rows=await publicPlaylistTrackRows([p.id]);
+  const {data:rows,error:rowsError}=await sb.from("playlist_tracks").select("track_id,position").eq("playlist_id",p.id).order("position",{ascending:true});
+  if(rowsError)throw rowsError;
   const ids=(rows||[]).map(x=>x.track_id);
   let publicTracks=[];
   if(ids.length){
-    const td=await publicRest("tracks",{select:"id,name,storage_path,duration,created_at,user_id",id:`in.(${ids.join(",")})`});
+    const {data:td,error:tdError}=await sb.from("tracks").select("id,name,storage_path,duration,created_at,user_id").in("id",ids);
+    if(tdError)throw tdError;
     const byId=new Map((td||[]).map(t=>[t.id,t]));
     publicTracks=ids.map(id=>byId.get(id)).filter(Boolean).map(t=>({...t,url:sb.storage.from("audio").getPublicUrl(t.storage_path).data.publicUrl,date:new Date(t.created_at).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})}));
   }
