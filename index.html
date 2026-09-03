@@ -1929,6 +1929,99 @@ setAuthMode("login");
 hideBootSplash();
 
 
+
+<script>
+(function(){
+  function addDiagnosticButton(){
+    if(document.getElementById("bobNetworkDiagBtn")) return;
+    const b=document.createElement("button");
+    b.id="bobNetworkDiagBtn";
+    b.textContent="DIAGNOSTIC RÉSEAU";
+    b.style.cssText="position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;background:#fff;color:#000;border:2px solid #fff;border-radius:8px;padding:10px 14px;font:bold 12px monospace;box-shadow:0 4px 18px #000;";
+    b.onclick=runDiagnostic;
+    document.body.appendChild(b);
+  }
+
+  async function timedFetch(label,url,opts,timeout=6000){
+    const started=performance.now();
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),timeout);
+    try{
+      const r=await fetch(url,{...opts,signal:controller.signal,cache:"no-store"});
+      const ms=Math.round(performance.now()-started);
+      let body="";
+      try{body=await r.text()}catch{}
+      return {label,ok:true,status:r.status,ms,body:body.slice(0,1200)};
+    }catch(e){
+      const ms=Math.round(performance.now()-started);
+      return {label,ok:false,status:null,ms,error:e?.name==="AbortError"?"TIMEOUT":(e?.message||String(e))};
+    }finally{clearTimeout(timer);}
+  }
+
+  function showResults(results){
+    const old=document.getElementById("bobDiagModal"); if(old)old.remove();
+    const modal=document.createElement("div");
+    modal.id="bobDiagModal";
+    modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:100000;color:#fff;font:12px monospace;padding:18px;overflow:auto;";
+    const close=document.createElement("button");
+    close.textContent="FERMER";
+    close.style.cssText="position:sticky;top:0;float:right;background:#fff;color:#000;border:0;padding:9px 12px;font:bold 12px monospace;border-radius:6px;";
+    close.onclick=()=>modal.remove();
+    modal.appendChild(close);
+    const h=document.createElement("h2"); h.textContent="DIAGNOSTIC SUPABASE"; modal.appendChild(h);
+    const info=document.createElement("pre");
+    info.style.whiteSpace="pre-wrap";
+    info.textContent="URL: "+SUPABASE_URL+"\nSESSION: "+(user?"OUI":"NON")+"\nUSER ID: "+(user?.id||"—")+"\n\n";
+    modal.appendChild(info);
+    results.forEach(x=>{
+      const pre=document.createElement("pre");
+      pre.style.cssText="white-space:pre-wrap;border:1px solid #444;padding:10px;margin:8px 0;border-radius:6px;";
+      pre.textContent=(x.ok?"✅ ":"❌ ")+x.label+" — "+(x.status??"—")+" — "+x.ms+" ms\n"+(x.body||x.error||"");
+      modal.appendChild(pre);
+    });
+    document.body.appendChild(modal);
+  }
+
+  async function runDiagnostic(){
+    const btn=document.getElementById("bobNetworkDiagBtn");
+    if(btn){btn.disabled=true;btn.textContent="TEST EN COURS…";}
+    try{
+      let session=null;
+      try{session=(await sb.auth.getSession())?.data?.session||null}catch{}
+      const token=session?.access_token||"";
+      const key=SUPABASE_KEY;
+      const base=SUPABASE_URL;
+      const playlistUrl=base+"/rest/v1/playlists?select=id&limit=1";
+      const results=[];
+      results.push(await timedFetch("1. PROJET /",base+"/"));
+      results.push(await timedFetch("2. AUTH /health",base+"/auth/v1/health"));
+      results.push(await timedFetch("3. REST /rest/v1/ SANS CLÉ",base+"/rest/v1/"));
+      results.push(await timedFetch("4. PLAYLISTS AVEC CLÉ EN URL",playlistUrl+"&apikey="+encodeURIComponent(key)));
+      results.push(await timedFetch("5. PLAYLISTS AVEC CLÉ + TOKEN",playlistUrl,{
+        headers:{apikey:key,Authorization:token?"Bearer "+token:"",Accept:"application/json"}
+      }));
+      results.push(await timedFetch("6. SUPABASE-JS from(playlists)",null,{method:"GET"}).catch(()=>({label:"6. SUPABASE-JS from(playlists)",ok:false,ms:0,error:"test séparé"})));
+      // Real JS-client query, with its own timeout.
+      const t0=performance.now();
+      try{
+        const p=sb.from("playlists").select("id").limit(1);
+        const out=await Promise.race([
+          p,
+          new Promise((_,rej)=>setTimeout(()=>rej(new Error("TIMEOUT")),6000))
+        ]);
+        results[5]={label:"6. SUPABASE-JS from(playlists)",ok:true,status:out.error?("ERR"):"OK",ms:Math.round(performance.now()-t0),body:JSON.stringify(out.error||out.data).slice(0,1200)};
+      }catch(e){
+        results[5]={label:"6. SUPABASE-JS from(playlists)",ok:false,status:null,ms:Math.round(performance.now()-t0),error:e?.message||String(e)};
+      }
+      showResults(results);
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent="DIAGNOSTIC RÉSEAU";}
+    }
+  }
+
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",addDiagnosticButton);
+  else addDiagnosticButton();
+})();
 </script></body></html>
 <style id="bob-eraser-logo">
 .bob{display:grid;place-items:center;overflow:hidden}
