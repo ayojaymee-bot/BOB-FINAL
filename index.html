@@ -186,6 +186,16 @@ button{border:0;color:inherit;cursor:pointer}
   border-radius:18px;
 }
 .cover[src=""]{visibility:hidden}
+.cover-upload-wrap{position:relative;width:100%;display:flex;justify-content:center;align-items:center}
+.cover-upload-wrap .cover{transition:filter .15s ease,opacity .15s ease}
+.cover-upload-wrap.uploading .cover{filter:grayscale(1) brightness(.3);opacity:.55}
+.cover-upload-overlay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(70%,280px);display:none;z-index:3;text-align:center;pointer-events:none}
+.cover-upload-wrap.uploading .cover-upload-overlay{display:block}
+.cover-upload-percent{font-size:13px;font-weight:700;margin-bottom:8px}
+.cover-upload-bar{height:6px;background:#222;border-radius:999px;overflow:hidden;border:1px solid #444}
+.cover-upload-fill{height:100%;width:0;background:#fff;border-radius:999px;transition:width .12s linear}
+.cover-upload-status{font-size:11px;margin-top:7px;opacity:.8}
+
 .title-row{
   display:flex;align-items:end;justify-content:space-between;
   gap:16px;margin-top:26px;
@@ -207,6 +217,18 @@ h1{
   gap:10px;font-size:18px;font-weight:750;
 }
 .add span{font-size:30px}
+
+.upload-progress-list{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+.upload-progress{display:grid;grid-template-columns:58px 1fr;gap:12px;align-items:center;padding:10px;border:1px solid #202020;border-radius:12px;background:#070707}
+.upload-progress-cover{position:relative;width:58px;height:58px;border-radius:9px;overflow:hidden;background:#111}
+.upload-progress-cover img{width:100%;height:100%;object-fit:cover;filter:grayscale(1) brightness(.28)}
+.upload-progress-cover::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.35)}
+.upload-progress-percent{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;z-index:1}
+.upload-progress-info{min-width:0}
+.upload-progress-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:7px}
+.upload-progress-bar{height:5px;border-radius:999px;background:#242424;overflow:hidden}
+.upload-progress-fill{height:100%;width:0;background:#fff;border-radius:999px;transition:width .12s linear}
+.upload-progress-status{font-size:11px;color:#777;margin-top:5px}
 .tracks{margin-top:24px}
 .track{
   display:grid;grid-template-columns:42px minmax(0,1fr) 34px;gap:15px;
@@ -783,7 +805,7 @@ body::before{
     </div>
   </div>
 </div>
-<section class="screen app" id="appScreen"><div class="top"><button class="icon" id="back">‹</button><div class="top-right"><button class="bob" id="bob" aria-label="Gomme"><span class="eraser-logo" aria-hidden="true"></span></button><button class="icon" id="share" aria-label="Partager">↗</button><button class="icon" id="settings">✎</button></div></div><section class="project"><img id="cover" class="cover" alt=""><div class="title-row"><div><h1 id="projectTitle">Playlist 1</h1><div class="sub"><span id="artist">BOB</span> · <span id="trackCount">0 tracks</span> · <span id="totalTime">0m 00s</span></div></div><button class="play-main" id="playAll">▶</button></div><div class="playlist-tools"><button class="add" id="add"><span>＋</span> Add tracks</button><button class="shuffle" id="shuffle" aria-label="Lecture aléatoire">⤨</button></div><div class="track-search"><span>⌕</span><input id="trackSearch" type="search" placeholder="Rechercher un morceau…" autocomplete="off" enterkeyhint="search"></div><input id="files" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav" multiple hidden><div class="tracks" id="tracks"></div></section></section>
+<section class="screen app" id="appScreen"><div class="top"><button class="icon" id="back">‹</button><div class="top-right"><button class="bob" id="bob" aria-label="Gomme"><span class="eraser-logo" aria-hidden="true"></span></button><button class="icon" id="share" aria-label="Partager">↗</button><button class="icon" id="settings">✎</button></div></div><section class="project"><div class="cover-upload-wrap" id="coverUploadWrap"><img id="cover" class="cover" alt=""><div class="cover-upload-overlay"><div class="cover-upload-percent" id="coverUploadPercent">0%</div><div class="cover-upload-bar"><div class="cover-upload-fill" id="coverUploadFill"></div></div><div class="cover-upload-status">Enregistrement de la cover…</div></div></div><div class="title-row"><div><h1 id="projectTitle">Playlist 1</h1><div class="sub"><span id="artist">BOB</span> · <span id="trackCount">0 tracks</span> · <span id="totalTime">0m 00s</span></div></div><button class="play-main" id="playAll">▶</button></div><div class="playlist-tools"><button class="add" id="add"><span>＋</span> Add tracks</button><button class="shuffle" id="shuffle" aria-label="Lecture aléatoire">⤨</button></div><div class="track-search"><span>⌕</span><input id="trackSearch" type="search" placeholder="Rechercher un morceau…" autocomplete="off" enterkeyhint="search"></div><input id="files" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav" multiple hidden><div class="tracks" id="tracks"></div></section></section>
 <div class="player" id="player"><div class="player-top"><button class="player-expand" id="playerExpand" aria-label="Ouvrir le lecteur"><span class="expand-chevron">⌃</span></button><img id="miniCover" class="mini-cover"><div class="info" id="playerInfo"><b id="nowTitle">Aucun morceau</b><span id="nowArtist">BOB</span></div><button class="player-btn" id="prev">‹</button><button class="player-btn player-play" id="play">▶</button><button class="player-btn" id="next">›</button></div><div class="progress" id="progress"><div class="progress-fill" id="progressFill"></div></div><div class="player-expanded-controls"><input id="progressRange" type="range" min="0" max="100" value="0" step="0.1" aria-label="Position dans le morceau"><div class="time"><span id="elapsed">0:00</span><span id="duration">0:00</span></div></div></div>
 <div class="settings" id="sheet"><div class="sheet"><h2>Personnaliser</h2><div class="field"><label>Nom du projet</label><input id="titleInput"></div><div class="field"><label>Artiste</label><input id="artistInput" value="BOB"></div><div class="field"><label>Pochette</label><input id="coverInput" type="file" accept="image/*"></div><div class="actions"><button id="close">Fermer</button><button class="primary" id="save">Enregistrer</button></div></div></div><audio id="audio" preload="metadata"></audio>
 <div class="auth-overlay" id="authOverlay">
@@ -1044,7 +1066,7 @@ const $=id=>document.getElementById(id),audio=$("audio"),ICONS=["♫","◉","☾
 const bootBob=$("bootBob"); if(bootBob)bootBob.src=dataUri;
 function hideBootSplash(){const s=$("bootSplash");if(s){setTimeout(()=>s.classList.add("hide"),900);setTimeout(()=>s.remove(),1400);}}
 
-let tracks=[],current=-1,activePlaylist=0,filter="",playlists=[],user=null,authMode="login";
+let tracks=[],current=-1,activePlaylist=0,filter="",playlists=[],user=null,authMode="login",uploadingFiles=[];
 
 function transitionTo(el, display){
   el.classList.remove("screen-active");
@@ -1172,6 +1194,26 @@ async function showHome(){
 }
 window.openPlaylist=openPlaylist;
 
+
+function renderUploadProgress(){
+  if(!uploadingFiles.length)return "";
+  const cover=playlists[activePlaylist]?.cover||dataUri;
+  return `<div class="upload-progress-list">${uploadingFiles.map((u)=>{
+    const pct=Math.max(0,Math.min(100,Math.round(u.progress||0)));
+    return `<div class="upload-progress">
+      <div class="upload-progress-cover">
+        <img src="${esc(cover)}" alt="">
+        <div class="upload-progress-percent">${pct}%</div>
+      </div>
+      <div class="upload-progress-info">
+        <div class="upload-progress-name">${esc(u.name)}</div>
+        <div class="upload-progress-bar"><div class="upload-progress-fill" style="width:${pct}%"></div></div>
+        <div class="upload-progress-status">${pct>=100?"Ajouté":"Ajout en cours…"}</div>
+      </div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
 function render(){
   const p=playlists[activePlaylist];
   const ordered=p?.tracks||[];
@@ -1179,14 +1221,15 @@ function render(){
   let list=ordered.map((t,index)=>({t,index})).filter(x=>!filter||x.t.name.toLowerCase().includes(filter));
   $("trackCount").textContent=list.length+" tracks";
   $("totalTime").textContent=total(list.reduce((a,x)=>a+(x.t.duration||0),0));
-  $("tracks").innerHTML=list.length?list.map((x,k)=>{
+  const uploadHtml=renderUploadProgress();
+  $("tracks").innerHTML=uploadHtml+(list.length?list.map((x,k)=>{
     const t=x.t, ti=tracks.findIndex(y=>y.id===t.id);
     return `<div class="track ${ti===current&&!audio.paused?"is-playing":""}" data-track-id="${esc(t.id)}" data-pos="${x.index}" onclick="handleTrackClick(event,${ti})">
       <div class="num">${k+1}</div>
       <div class="track-main"><div class="track-name">${esc(t.name)}</div><div class="date">${esc(t.date||"")}</div></div>
       ${canReorder?`<div class="drag-handle" data-drag-index="${x.index}" aria-label="Changer l'ordre" title="Changer l'ordre"><i></i><i></i><i></i></div>`:""}
     </div>`;
-  }).join(""):"<div class='empty'>Cette playlist est vide.<br>Appuie sur « Add tracks » pour importer une musique.</div>";
+  }).join(""):(uploadHtml?"":"<div class='empty'>Cette playlist est vide.<br>Appuie sur « Add tracks » pour importer une musique.</div>"));
 }
 
 function handleTrackClick(e,i){
@@ -1451,8 +1494,45 @@ $("files").onchange=async e=>{
     try{
       const id=crypto.randomUUID();
       const path=user.id+"/"+id+"-"+f.name.replace(/[^\w.\- ]+/g,"_");
-      const {error:upError}=await sb.storage.from("audio").upload(path,f,{contentType:f.type||"audio/mpeg",upsert:false});
-      if(upError)throw upError;
+
+      const uploadItem={id,name:f.name,progress:0};
+      uploadingFiles.push(uploadItem);
+      render();
+
+      const {data:sessionData,error:sessionError}=await sb.auth.getSession();
+      if(sessionError)throw sessionError;
+      const accessToken=sessionData.session?.access_token;
+      if(!accessToken)throw new Error("Session utilisateur introuvable.");
+
+      await new Promise((resolve,reject)=>{
+        const xhr=new XMLHttpRequest();
+        xhr.open("POST",SUPABASE_URL+"/storage/v1/object/audio/"+path,true);
+        xhr.setRequestHeader("Authorization","Bearer "+accessToken);
+        xhr.setRequestHeader("apikey",SUPABASE_KEY);
+        xhr.setRequestHeader("Content-Type",f.type||"audio/mpeg");
+        xhr.setRequestHeader("x-upsert","false");
+
+        xhr.upload.onprogress=e=>{
+          if(e.lengthComputable){
+            uploadItem.progress=(e.loaded/e.total)*100;
+            render();
+          }
+        };
+        xhr.onload=()=>{
+          if(xhr.status>=200&&xhr.status<300){
+            uploadItem.progress=100;
+            render();
+            resolve();
+          }else{
+            let msg="Erreur d’import.";
+            try{msg=JSON.parse(xhr.responseText)?.message||JSON.parse(xhr.responseText)?.error||msg}catch(_){}
+            reject(new Error(msg));
+          }
+        };
+        xhr.onerror=()=>reject(new Error("Échec du téléchargement."));
+        xhr.onabort=()=>reject(new Error("Téléchargement interrompu."));
+        xhr.send(f);
+      });
 
       const name=f.name.replace(/\.[^.]+$/,"");
       let duration=0;
@@ -1474,8 +1554,10 @@ $("files").onchange=async e=>{
       if(ptError)throw ptError;
 
       playlists[activePlaylist].tracks.push({id:t.id,name:t.name,duration:t.duration,date:new Date().toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})});
+      uploadingFiles=uploadingFiles.filter(u=>u.name!==f.name);
       await loadTracks();
     }catch(err){
+      uploadingFiles=uploadingFiles.filter(u=>u.name!==f.name);
       console.error(err);
       alert("Erreur import « "+f.name+" » :\n"+(err?.message||err?.error||String(err)));
     }
@@ -1629,10 +1711,47 @@ $("save").onclick=async()=>{
       return;
     }
     try{
+      // Ferme immédiatement l'onglet puis affiche la progression directement sur la cover.
+      $("sheet").classList.remove("open");
+      const wrap=$("coverUploadWrap"), fill=$("coverUploadFill"), pct=$("coverUploadPercent");
+      wrap.classList.add("uploading");
+      fill.style.width="0%"; pct.textContent="0%";
+
       const safeName=f.name.replace(/[^\w.\- ]+/g,"_");
       const path=user.id+"/covers/"+crypto.randomUUID()+"-"+safeName;
-      const {error:coverError}=await sb.storage.from("audio").upload(path,f,{contentType:f.type,upsert:false});
-      if(coverError)throw coverError;
+      const {data:sessionData,error:sessionError}=await sb.auth.getSession();
+      if(sessionError)throw sessionError;
+      const accessToken=sessionData.session?.access_token;
+      if(!accessToken)throw new Error("Session utilisateur introuvable.");
+
+      await new Promise((resolve,reject)=>{
+        const xhr=new XMLHttpRequest();
+        xhr.open("POST",SUPABASE_URL+"/storage/v1/object/audio/"+path,true);
+        xhr.setRequestHeader("Authorization","Bearer "+accessToken);
+        xhr.setRequestHeader("apikey",SUPABASE_KEY);
+        xhr.setRequestHeader("Content-Type",f.type);
+        xhr.setRequestHeader("x-upsert","false");
+        xhr.upload.onprogress=e=>{
+          if(e.lengthComputable){
+            const progress=(e.loaded/e.total)*100;
+            fill.style.width=progress+"%";
+            pct.textContent=Math.round(progress)+"%";
+          }
+        };
+        xhr.onload=()=>{
+          if(xhr.status>=200&&xhr.status<300){
+            fill.style.width="100%"; pct.textContent="100%"; resolve();
+          }else{
+            let msg="Erreur d’import.";
+            try{const j=JSON.parse(xhr.responseText);msg=j.message||j.error||msg}catch(_){}
+            reject(new Error(msg));
+          }
+        };
+        xhr.onerror=()=>reject(new Error("Échec du téléchargement."));
+        xhr.onabort=()=>reject(new Error("Téléchargement interrompu."));
+        xhr.send(f);
+      });
+
       const {data:publicData}=sb.storage.from("audio").getPublicUrl(path);
       const coverUrl=publicData.publicUrl;
       const {data:updated,error:coverDbError}=await sb.from("playlists").update({cover_url:coverUrl}).eq("id",playlists[activePlaylist].id).eq("user_id",user.id).select().single();
@@ -1640,13 +1759,15 @@ $("save").onclick=async()=>{
       playlists[activePlaylist].cover_url=updated.cover_url;
       playlists[activePlaylist].cover=updated.cover_url;
       $("cover").src=updated.cover_url;
+      $("coverUploadWrap").classList.remove("uploading");
     }catch(e){
+      $("coverUploadWrap").classList.remove("uploading");
       console.error(e);
       alert("Impossible d'importer la pochette.\n"+(e?.message||e?.error||String(e)));
       return;
     }
   }
-  render();renderHome();$("sheet").classList.remove("open");
+  render();renderHome();
 };
 
 function setAuthMode(mode){
