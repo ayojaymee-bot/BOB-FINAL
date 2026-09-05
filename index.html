@@ -1443,7 +1443,7 @@ body::before{
 }
 </style>
 
-</head><body>
+<style id="single-soccer-controls">.bob-soccer-controls-single{display:flex!important;justify-content:center!important;align-items:center!important;gap:14px!important;width:min(620px,100%)!important;margin:14px auto 0!important}.bob-soccer-controls-single button{width:clamp(100px,24vw,150px)!important;height:clamp(62px,14vw,82px)!important;min-width:0!important;min-height:0!important;font-size:clamp(11px,2.5vw,16px)!important;font-weight:900!important;letter-spacing:1px!important}.bob-soccer-controls-single button:active,.bob-soccer-controls-single button.touching{background:#fff!important;color:#000!important}@media(max-width:600px){.bob-soccer-controls-single{gap:8px!important}.bob-soccer-controls-single button{width:30vw!important;height:66px!important;font-size:11px!important}}</style><style id="track-rename-style">.track-rename{appearance:none;-webkit-appearance:none;background:#000;color:#fff;border:1px solid #fff;width:32px;height:32px;min-width:32px;margin-left:6px;font-family:inherit;font-size:14px;line-height:1;cursor:pointer;flex:0 0 auto}.track-rename:active{background:#fff;color:#000}@media(max-width:600px){.track-rename{width:36px;height:36px;min-width:36px}}</style><style id="bob-soccer-graphics">#bobHeadSoccer .bob-soccer-wrap{background:linear-gradient(180deg,#080b16,#111a2b);border:2px solid #29344d;box-shadow:0 18px 60px rgba(0,0,0,.65)}#bobHeadSoccer .bob-soccer-top{background:#05070d;border-bottom:2px solid #29344d}#bobHeadSoccer .bob-soccer-score{font-size:26px;font-weight:900}#bobHeadSoccer .bob-soccer-controls-single{display:flex!important;justify-content:center;gap:16px;padding:14px 12px}#bobHeadSoccer .bob-soccer-controls-single button{width:96px!important;height:66px!important;min-width:96px!important;min-height:66px!important;border:2px solid #687896!important;background:#111827!important;color:#fff!important;border-radius:14px!important;font:bold 15px monospace!important;box-shadow:0 5px 0 #05070d}#bobHeadSoccer .bob-soccer-controls-single button:active,#bobHeadSoccer .bob-soccer-controls-single button.touching{background:#fff!important;color:#000!important;transform:translateY(3px)}</style></head><body>
 <div id="bootSplash" aria-hidden="true"><img id="bootBob" alt="BOB"><div class="boot-text">BOB</div></div>
 <section class="screen home" id="homeScreen">
 <div class="home-profile-wrap" id="homeProfileWrap">
@@ -1947,7 +1947,7 @@ function render(){
     return `<div class="track ${ti===current&&!audio.paused?"is-playing":""}" data-track-id="${esc(t.id)}" data-pos="${x.index}" onclick="handleTrackClick(event,${ti})">
       <div class="num">${k+1}</div>
       <div class="track-main"><div class="track-name">${esc(t.name)}</div><div class="date">${esc(t.date||"")}</div></div>
-      ${canReorder?`<div class="drag-handle" data-drag-index="${x.index}" aria-label="Changer l'ordre" title="Changer l'ordre"><i></i><i></i><i></i></div>`:""}
+      ${canReorder?`<div class="drag-handle" data-drag-index="${x.index}" aria-label="Changer l'ordre" title="Changer l'ordre"><i></i><i></i><i></i></div>`:""}<button class="track-rename" onclick="event.stopPropagation();renameTrack(${ti})" aria-label="Renommer" title="Renommer">✎</button>
     </div>`;
   }).join(""):(uploadHtml?"":"<div class='empty'>Cette playlist est vide.<br>Appuie sur « Add tracks » pour importer une musique.</div>"));
 }
@@ -2167,6 +2167,8 @@ function selectTrack(i,auto=true){
 }
 function update(){$("play").textContent=audio.paused?"▶":"Ⅱ"; if(document.getElementById("tracks"))render();}
 window.selectTrack=selectTrack;
+
+async function renameTrack(i){const t=tracks[i];if(!t||!user)return;const next=prompt("Nouveau nom du morceau :",t.name||"");if(next===null)return;const name=next.trim();if(!name||name===t.name)return;try{const {error}=await sb.from("tracks").update({name}).eq("id",t.id).eq("user_id",user.id);if(error)throw error;t.name=name;playlists.forEach(p=>p.tracks.forEach(x=>{if(x.id===t.id)x.name=name;}));render();renderHome();if(current===i){$("nowTitle").textContent=name;updateMediaSession()}}catch(e){console.error(e);alert("Impossible de renommer le morceau.\n"+(e?.message||String(e)))}}window.renameTrack=renameTrack;
 
 async function menu(i){
   const t=tracks[i];
@@ -2852,6 +2854,7 @@ hideBootSplash();
 </script>
 
 
+<script id="bob-profile-logout-fix">(function(){function init(){const b=document.getElementById('homeProfileLogout');if(!b)return;b.onclick=async function(e){e.preventDefault();e.stopImmediatePropagation();b.disabled=true;b.textContent='DÉCONNEXION…';try{const r=await sb.auth.signOut();if(r.error)throw r.error;user=null;localStorage.removeItem('bob_profile_username');localStorage.removeItem('bob_profile_photo');document.body.style.overflow='';location.reload()}catch(err){console.error(err);b.disabled=false;b.textContent='SE DÉCONNECTER';alert('Impossible de se déconnecter.\n'+(err?.message||String(err)))}}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init()})();</script>
 <script id="bob-polish-js">
 (function(){
   function init(){
@@ -2955,8 +2958,8 @@ hideBootSplash();
     <div class="bob-soccer-top"><button id="bobSoccerBack" class="bob-soccer-back">←</button><div class="bob-soccer-score"><span id="bobScoreA">0</span> — <span id="bobScoreB">0</span></div><div class="bob-soccer-time" id="bobSoccerTime">90</div><button id="bobSoccerReset" class="bob-soccer-reset">RESET</button></div>
     <canvas id="bobSoccerCanvas" width="900" height="520"></canvas>
     <div class="bob-soccer-status" id="bobSoccerStatus"></div>
-    <div class="bob-soccer-controls"><div class="bob-control-side"><button data-key="a">◀</button><button data-key="d">▶</button><button data-key="w">▲</button><button data-key="k">●</button></div><div class="bob-control-side"><button data-key="left">◀</button><button data-key="right">▶</button><button data-key="up">▲</button><button data-key="l">●</button></div></div>
-    <div class="bob-soccer-help">P1 A/D/W + K TIR • P2 ←/→/↑ + L TIR • PREMIER À 5 OU FIN DU TIMER</div>
+    <div class="bob-soccer-controls bob-soccer-controls-single"><button data-key="a">GAUCHE</button><button data-key="w">SAUT</button><button data-key="d">DROITE</button></div>
+    <div class="bob-soccer-help">GAUCHE • SAUT • DROITE • BOB JOUE SEUL CONTRE L'ADVERSAIRE • PREMIER À 5 OU FIN DU TIMER</div>
   </div>
 </div>
 <style>
@@ -2979,9 +2982,28 @@ function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function hit(p){let nx=clamp(ball.x,p.x,p.x+p.w),ny=clamp(ball.y,p.y,p.y+p.h),dx=ball.x-nx,dy=ball.y-ny;return dx*dx+dy*dy<ball.r*ball.r}
 function kick(p,dir){let cx=p.x+p.w/2,cy=p.y+p.h*.3,dx=ball.x-cx,dy=ball.y-cy,L=Math.max(1,Math.hypot(dx,dy));ball.x=cx+dx/L*(ball.r+p.w*.38);ball.y=cy+dy/L*(ball.r+p.h*.38);ball.vx=dx/L*330+p.vx*.5+dir*110;ball.vy=dy/L*330+p.vy*.2-220;ball.spin+=dir*5}
 function goal(team){if(team==='A')sa++;else sbscore++;score();status(team==='A'?'⚡ BUT JOUEUR 1':'⚡ BUT JOUEUR 2');if(sa>=5||sbscore>=5){run=false;status(sa>sbscore?'JOUEUR 1 GAGNE !':'JOUEUR 2 GAGNE !');return}resetRound()}
-function draw(){x.fillStyle="#000";x.fillRect(0,0,900,520);x.strokeStyle="#fff";x.lineWidth=3;x.strokeRect(4,4,892,512);x.beginPath();x.moveTo(450,0);x.lineTo(450,440);x.stroke();x.beginPath();x.arc(450,440,72,Math.PI,2*Math.PI);x.stroke();x.strokeRect(0,270,48,170);x.strokeRect(852,270,48,170);x.beginPath();x.moveTo(0,440);x.lineTo(900,440);x.stroke();
-function head(im,p,f){x.save();x.imageSmoothingEnabled=false;if(f){x.translate(p.x+p.w,p.y);x.scale(-1,1);x.drawImage(im,0,0,p.w,p.h)}else x.drawImage(im,p.x,p.y,p.w,p.h);x.restore()}head(A,p1,false);head(B,p2,true);x.fillStyle="#fff";x.beginPath();x.arc(ball.x,ball.y,ball.r,0,Math.PI*2);x.fill();x.fillStyle="#000";x.beginPath();x.arc(ball.x-7,ball.y-5,4,0,7);x.fill();x.beginPath();x.arc(ball.x+7,ball.y+5,4,0,7);x.fill()}
-function update(dt){if(pause>0){pause-=dt;return}let sp=340,j=570,g=1550;p1.vx=keys.a?-sp:keys.d?sp:p1.vx*.78;p2.vx=keys.left?-sp:keys.right?sp:p2.vx*.78;if(keys.w&&p1.on){p1.vy=-j;p1.on=false}if(keys.up&&p2.on){p2.vy=-j;p2.on=false}if(keys.k&&k1<=0){kick(p1,1);k1=.38}if(keys.l&&k2<=0){kick(p2,-1);k2=.38}k1=Math.max(0,k1-dt);k2=Math.max(0,k2-dt);[p1,p2].forEach(p=>{p.vy+=g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.x=clamp(p.x,0,900-p.w);if(p.y+p.h>=440){p.y=328;p.vy=0;p.on=true}});ball.vy+=g*.72*dt;ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;if(ball.y+ball.r>=440){ball.y=417;ball.vy*=-.72;ball.vx*=.94}if(ball.y-ball.r<0){ball.y=ball.r;ball.vy=Math.abs(ball.vy)*.72}if(ball.x-ball.r<0){if(ball.y>270){goal('B');return}ball.x=ball.r;ball.vx=Math.abs(ball.vx)*.78}if(ball.x+ball.r>900){if(ball.y>270){goal('A');return}ball.x=877;ball.vx=-Math.abs(ball.vx)*.78}[[p1,1],[p2,-1]].forEach(([p,d])=>{if(hit(p))kick(p,d)})}
+function draw(){const W=900,H=520,G=440;x.clearRect(0,0,W,H);x.imageSmoothingEnabled=false;
+const sky=x.createLinearGradient(0,0,0,G);sky.addColorStop(0,"#0b1430");sky.addColorStop(.6,"#1c4266");sky.addColorStop(1,"#315b70");x.fillStyle=sky;x.fillRect(0,0,W,G);
+// roof + floodlights
+x.fillStyle="#070a12";x.fillRect(0,0,W,48);x.fillStyle="#273149";x.fillRect(0,43,W,10);for(let lx=45;lx<900;lx+=105){x.fillStyle="#101827";x.fillRect(lx,16,76,9);x.fillStyle="#fff4ad";for(let k=0;k<7;k++)x.fillRect(lx+5+k*10,25,7,5)}
+// crowd stands
+x.fillStyle="#101725";x.fillRect(0,58,W,155);const crowd=["#e94b55","#f2c94c","#4da5e8","#54cf75","#a86ee8"];for(let r=0;r<7;r++)for(let c=0;c<45;c++){x.fillStyle=crowd[(c*17+r*31)%crowd.length];x.fillRect(8+c*20+(r%2)*6,72+r*18,8,9)}
+// banner
+x.fillStyle="#080b14";x.fillRect(45,192,810,28);x.fillStyle="#fff";x.font="bold 15px monospace";x.textAlign="center";x.fillText("B O B   S T A D I U M   •   HEAD SOCCER",450,211);
+// scoreboard
+x.fillStyle="#05070d";x.fillRect(330,62,240,82);x.strokeStyle="#63708b";x.lineWidth=3;x.strokeRect(330,62,240,82);x.fillStyle="#fff";x.font="bold 13px monospace";x.fillText("BOB CUP",450,82);x.font="bold 30px monospace";x.fillText(sa+"  —  "+sbscore,450,118);x.font="11px monospace";x.fillStyle="#aeb8cb";x.fillText(Math.ceil(t)+" SEC",450,136);
+// pitch
+x.fillStyle="#075b36";x.fillRect(0,220,W,220);for(let i=0;i<9;i++){x.fillStyle=i%2?"#0b7043":"#0a633b";x.fillRect(i*100,220,100,220)}x.strokeStyle="rgba(255,255,255,.9)";x.lineWidth=3;x.beginPath();x.moveTo(450,220);x.lineTo(450,440);x.stroke();x.beginPath();x.arc(450,440,72,Math.PI,2*Math.PI);x.stroke();x.beginPath();x.arc(450,440,4,0,7);x.fillStyle="#fff";x.fill();x.strokeRect(0,270,48,170);x.strokeRect(852,270,48,170);x.strokeRect(0,315,20,125);x.strokeRect(880,315,20,125);
+// nets
+function net(gx){x.fillStyle="rgba(235,245,255,.10)";x.fillRect(gx,270,48,170);x.strokeStyle="#fff";x.lineWidth=4;x.strokeRect(gx,270,48,170);x.strokeStyle="rgba(255,255,255,.25)";x.lineWidth=1;for(let yy=280;yy<440;yy+=12){x.beginPath();x.moveTo(gx,yy);x.lineTo(gx+48,yy);x.stroke()}for(let xx=gx;xx<=gx+48;xx+=12){x.beginPath();x.moveTo(xx,270);x.lineTo(xx,440);x.stroke()}}net(0);net(852);
+// shadows
+function shadow(p){x.save();x.globalAlpha=.28;x.fillStyle="#000";x.beginPath();x.ellipse(p.x+p.w/2,439,27,7,0,0,7);x.fill();x.restore()}shadow(p1);shadow(p2);
+function head(im,p,f,col){x.save();x.globalAlpha=.25;x.fillStyle=col;x.beginPath();x.arc(p.x+p.w/2,p.y+p.h*.48,p.w*.66,0,7);x.fill();x.globalAlpha=1;x.imageSmoothingEnabled=false;if(f){x.translate(p.x+p.w,p.y);x.scale(-1,1);x.drawImage(im,0,0,p.w,p.h)}else x.drawImage(im,p.x,p.y,p.w,p.h);x.restore()}head(A,p1,false,"#38a8ff");head(B,p2,true,"#ff4f68");
+// ball
+x.save();x.globalAlpha=.28;x.fillStyle="#000";x.beginPath();x.ellipse(ball.x,438,ball.r*1.25,4,0,0,7);x.fill();x.restore();const bg=x.createRadialGradient(ball.x-4,ball.y-5,2,ball.x,ball.y,ball.r);bg.addColorStop(0,"#fff");bg.addColorStop(.8,"#e7edf6");bg.addColorStop(1,"#aab5c8");x.fillStyle=bg;x.beginPath();x.arc(ball.x,ball.y,ball.r,0,7);x.fill();x.strokeStyle="#172033";x.lineWidth=2;x.stroke();x.fillStyle="#182033";x.beginPath();x.arc(ball.x,ball.y,5,0,7);x.fill();
+// foreground
+x.fillStyle="#f5f7ff";x.fillRect(0,440,W,5);x.fillStyle="#0b0f19";x.fillRect(0,445,W,75);for(let i=0;i<9;i++){x.fillStyle=i%2?"#111827":"#1e293b";x.fillRect(i*100,455,98,42);x.fillStyle="#fff";x.font="bold 9px monospace";x.fillText("BOB",i*100+49,480)}x.textAlign="start"}
+function update(dt){if(pause>0){pause-=dt;return}let sp=340,j=570,g=1550;p1.vx=keys.a?-sp:keys.d?sp:p1.vx*.78;let p2c=p2.x+p2.w/2;p2.vx=ball.x<p2c-20?-sp*.62:ball.x>p2c+20?sp*.62:p2.vx*.72;if(keys.w&&p1.on){p1.vy=-j;p1.on=false}if(p2.on&&ball.y<p2.y+55&&Math.abs(ball.x-p2c)<125){p2.vy=-j*.9;p2.on=false}if(ball.x>p2.x-80&&ball.x<p2.x+p2.w+80&&ball.y>p2.y-40&&k2<=0){kick(p2,-1);k2=.48}if(ball.x>p1.x-80&&ball.x<p1.x+p1.w+80&&ball.y>p1.y-40&&k1<=0){kick(p1,1);k1=.48}k1=Math.max(0,k1-dt);k2=Math.max(0,k2-dt);[p1,p2].forEach(p=>{p.vy+=g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.x=clamp(p.x,0,900-p.w);if(p.y+p.h>=440){p.y=328;p.vy=0;p.on=true}});ball.vy+=g*.72*dt;ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;if(ball.y+ball.r>=440){ball.y=417;ball.vy*=-.72;ball.vx*=.94}if(ball.y-ball.r<0){ball.y=ball.r;ball.vy=Math.abs(ball.vy)*.72}if(ball.x-ball.r<0){if(ball.y>270){goal("B");return}ball.x=ball.r;ball.vx=Math.abs(ball.vx)*.78}if(ball.x+ball.r>900){if(ball.y>270){goal("A");return}ball.x=877;ball.vx=-Math.abs(ball.vx)*.78}[[p1,1],[p2,-1]].forEach(([p,d])=>{if(hit(p))kick(p,d)})}
 function loop(now){if(!run)return;let dt=Math.min(.025,(now-last)/1000||.016);last=now;t=Math.max(0,t-dt);if(t<=0){run=false;status(sa===sbscore?'MATCH NUL !':sa>sbscore?'JOUEUR 1 GAGNE !':'JOUEUR 2 GAGNE !')}update(dt);score();draw();raf=requestAnimationFrame(loop)}
 function start(){choice.hidden=true;soccer.hidden=false;run=true;resetMatch();last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
 sb.onclick=start;cb.onclick=hide;document.getElementById('bobSoccerBack').onclick=()=>{run=false;cancelAnimationFrame(raf);soccer.hidden=true;show()};document.getElementById('bobSoccerReset').onclick=start;
