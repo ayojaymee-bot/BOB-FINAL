@@ -1689,7 +1689,7 @@ const dataUri="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT
       const {error}=await sb.from("doodle_leaderboard").upsert({
         user_id:profile.uid,
         username:profile.username,
-        photo:profile.photo||null,
+        profile_photo:profile.photo||null,
         score:bestScore,
         updated_at:new Date().toISOString()
       },{onConflict:"user_id"});
@@ -1698,13 +1698,13 @@ const dataUri="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT
   }
   async function loadDoodleLeaderboard(){
     let rows=[];
-    try{const {data,error}=await sb.from("doodle_leaderboard").select("user_id,username,photo,score").order("score",{ascending:false}).limit(10);if(!error&&data)rows=data}catch(e){}
+    try{const {data,error}=await sb.from("doodle_leaderboard").select("user_id,username,profile_photo,score").order("score",{ascending:false}).limit(10);if(!error&&data)rows=data}catch(e){}
     if(!rows.length)rows=localDoodleScores();renderDoodleLeaderboard(rows);
   }
   function renderDoodleLeaderboard(rows){
     if(!leaderboardEl)return;leaderboardList.innerHTML="";
     if(!rows.length){leaderboardList.innerHTML='<div class="doodle-lb-empty">Aucun score enregistré pour le moment.</div>'}
-    else{const profile=getDoodleProfile();rows.slice(0,5).forEach((r,i)=>{const row=document.createElement("div");row.className="doodle-lb-row";if(profile.uid!=="guest"&&(r.user_id===profile.uid||r.uid===profile.uid))row.classList.add("doodle-lb-you");const rank=document.createElement("div");rank.className="doodle-lb-rank";rank.textContent=(i+1)+".";const avatar=document.createElement("img");avatar.className="doodle-lb-avatar";avatar.src=r.photo||dataUri;avatar.alt="";const name=document.createElement("div");name.className="doodle-lb-name";name.textContent=r.username||"BOB";const sc=document.createElement("div");sc.className="doodle-lb-score";sc.textContent=scoreText(Number(r.score)||0);row.append(rank,avatar,name,sc);leaderboardList.appendChild(row)})}
+    else{const profile=getDoodleProfile();rows.slice(0,5).forEach((r,i)=>{const row=document.createElement("div");row.className="doodle-lb-row";if(profile.uid!=="guest"&&(r.user_id===profile.uid||r.uid===profile.uid))row.classList.add("doodle-lb-you");const rank=document.createElement("div");rank.className="doodle-lb-rank";rank.textContent=(i+1)+".";const avatar=document.createElement("img");avatar.className="doodle-lb-avatar";avatar.src=r.profile_photo||r.photo||dataUri;avatar.alt="";const name=document.createElement("div");name.className="doodle-lb-name";name.textContent=r.username||"BOB";const sc=document.createElement("div");sc.className="doodle-lb-score";sc.textContent=scoreText(Number(r.score)||0);row.append(rank,avatar,name,sc);leaderboardList.appendChild(row)})}
     leaderboardEl.hidden=false;
   }
   async function gameOver(){
@@ -2960,7 +2960,7 @@ hideBootSplash();
       if(src){ img.src=src; img.hidden=false; btn.classList.add('has-photo'); }
       else { img.hidden=true; btn.classList.remove('has-photo'); }
     }
-    applyPhoto(localStorage.getItem('bob_profile_photo')||'');
+    applyPhoto((typeof user!=='undefined'&&user&&user.id?localStorage.getItem('bob_profile_photo_'+user.id):'')||localStorage.getItem('bob_profile_photo')||'');
     if(input) input.addEventListener('change',function(){
       const file=input.files&&input.files[0];
       if(!file) return;
@@ -2974,7 +2974,7 @@ hideBootSplash();
     });
     const save=document.getElementById('homeProfileSave');
     if(save) save.addEventListener('click',function(){
-      if(img.src && !img.hidden) localStorage.setItem('bob_profile_photo',img.src);
+      if(img.src && !img.hidden){ const uid=(typeof user!=='undefined'&&user&&user.id)?user.id:'guest'; localStorage.setItem('bob_profile_photo_'+uid,img.src); }
     });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
@@ -3160,7 +3160,7 @@ const bob=document.getElementById('homeBobButton');if(bob)bob.addEventListener('
   if(!panel || !button || !input) return;
 
   function accountKey(kind){
-    const id = window.user && window.user.id ? window.user.id : 'guest';
+    const id = (typeof user!=='undefined' && user && user.id) ? user.id : 'guest';
     return 'bob_profile_' + kind + '_' + id;
   }
 
@@ -3170,7 +3170,7 @@ const bob=document.getElementById('homeBobButton');if(bob)bob.addEventListener('
     const key = accountKey(kind);
     let value = localStorage.getItem(key) || '';
     // Migration des anciens profils globaux vers le compte connecté.
-    if(!value && window.user){
+    if(!value && typeof user!=='undefined' && user){
       const legacy = localStorage.getItem(legacyKey(kind)) || '';
       if(legacy){
         localStorage.setItem(key, legacy);
