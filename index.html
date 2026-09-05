@@ -1573,6 +1573,10 @@ const dataUri="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT
     makeStars();makeClouds();
     startBtn.textContent="JOUER";
     startBtn.classList.add("doodle-center");
+    startBtn.style.top="50%";
+    startBtn.style.bottom="auto";
+    startBtn.style.left="50%";
+    startBtn.style.transform="translate(-50%,-50%)";
     startBtn.style.display="block";
     draw();
   }
@@ -1711,7 +1715,7 @@ const dataUri="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT
   async function gameOver(){
     running=false;
     if(score>best){best=score;localStorage.setItem("bobJumpBest",String(best))}
-    startBtn.textContent="REJOUER";startBtn.classList.remove("doodle-center");startBtn.style.display="block";draw();
+    startBtn.textContent="REJOUER";startBtn.classList.remove("doodle-center");startBtn.style.top="";startBtn.style.bottom="16px";startBtn.style.left="50%";startBtn.style.transform="translateX(-50%)";startBtn.style.display="block";draw();
     const w=W(),h=H();ctx.fillStyle="rgba(0,0,0,.72)";ctx.fillRect(0,0,w,h);ctx.fillStyle="#fff";ctx.textAlign="center";ctx.font="900 13px Courier New";ctx.fillText("SCORE  "+scoreText(score),w/2,26);ctx.font="900 10px Courier New";ctx.fillText("MEILLEUR  "+scoreText(best),w/2,42);ctx.textAlign="left";
     const profile=getDoodleProfile();if(profile.uid!=="guest"){saveLocalDoodleScore(profile);loadDoodleLeaderboard();saveOnlineDoodleScore(profile).catch(()=>{});}else{loadDoodleLeaderboard();}
   }
