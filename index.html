@@ -482,6 +482,62 @@ button,input,.track,.playlist-card{touch-action:manipulation}
  .player.expanded .mini-cover{width:135px;height:135px}
  .player.expanded .player-top{height:195px}
 }
+
+/* BOB HEAD SOCCER — iPhone touch polish */
+#bobHeadSoccer,
+#bobHeadSoccer *{
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent;
+}
+#bobHeadSoccer{
+  overscroll-behavior:none;
+  touch-action:none;
+}
+#bobSoccerCanvas{
+  touch-action:none;
+  -webkit-user-select:none;
+  user-select:none;
+}
+#bobHeadSoccer .bob-control-side button{
+  appearance:none;
+  -webkit-appearance:none;
+  outline:none;
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-touch-callout:none;
+  touch-action:none;
+  cursor:pointer;
+  min-width:46px;
+  min-height:44px;
+  padding:0;
+  margin:0;
+  border-radius:0;
+  box-sizing:border-box;
+}
+#bobHeadSoccer .bob-control-side button:focus,
+#bobHeadSoccer .bob-control-side button:focus-visible{
+  outline:none;
+  box-shadow:none;
+}
+#bobHeadSoccer .bob-control-side button:active{
+  background:#fff;
+  color:#000;
+}
+@supports (-webkit-touch-callout:none){
+  #bobHeadSoccer{
+    min-height:100dvh;
+  }
+}
+
+
+#bobHeadSoccer .bob-control-side button.touching{
+  background:#fff!important;
+  color:#000!important;
+  transform:translateY(1px);
+}
+
 </style>
 <style>
 /* DEZOOM GLOBAL — interface plus compacte */
@@ -2929,10 +2985,202 @@ function update(dt){if(pause>0){pause-=dt;return}let sp=340,j=570,g=1550;p1.vx=k
 function loop(now){if(!run)return;let dt=Math.min(.025,(now-last)/1000||.016);last=now;t=Math.max(0,t-dt);if(t<=0){run=false;status(sa===sbscore?'MATCH NUL !':sa>sbscore?'JOUEUR 1 GAGNE !':'JOUEUR 2 GAGNE !')}update(dt);score();draw();raf=requestAnimationFrame(loop)}
 function start(){choice.hidden=true;soccer.hidden=false;run=true;resetMatch();last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
 sb.onclick=start;cb.onclick=hide;document.getElementById('bobSoccerBack').onclick=()=>{run=false;cancelAnimationFrame(raf);soccer.hidden=true;show()};document.getElementById('bobSoccerReset').onclick=start;
-addEventListener('keydown',e=>{let k=e.key.toLowerCase(),m={arrowleft:'left',arrowright:'right',arrowup:'up'};if(['a','d','w','k','l','arrowleft','arrowright','arrowup'].includes(k)){e.preventDefault();keys[m[k]||k]=true}});
-addEventListener('keyup',e=>{let k=e.key.toLowerCase(),m={arrowleft:'left',arrowright:'right',arrowup:'up'};keys[m[k]||k]=false});
-document.querySelectorAll('#bobHeadSoccer [data-key]').forEach(b=>{let k=b.dataset.key,down=e=>{e.preventDefault();keys[k]=true},up=e=>{e.preventDefault();keys[k]=false};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',up)});
+document.addEventListener('keydown',function(e){
+  if(soccer.hidden)return;
+  const key=(e.key||'').toLowerCase();
+  const code=e.code||'';
+  const map={
+    KeyA:'a',KeyD:'d',KeyW:'w',KeyK:'k',KeyL:'l',
+    ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up'
+  };
+  const k=map[code] || ({
+    a:'a',d:'d',w:'w',k:'k',l:'l',
+    arrowleft:'left',arrowright:'right',arrowup:'up'
+  })[key];
+  if(k){e.preventDefault();e.stopPropagation();keys[k]=true;}
+},true);
+
+document.addEventListener('keyup',function(e){
+  const key=(e.key||'').toLowerCase();
+  const code=e.code||'';
+  const map={
+    KeyA:'a',KeyD:'d',KeyW:'w',KeyK:'k',KeyL:'l',
+    ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up'
+  };
+  const k=map[code] || ({
+    a:'a',d:'d',w:'w',k:'k',l:'l',
+    arrowleft:'left',arrowright:'right',arrowup:'up'
+  })[key];
+  if(k){e.preventDefault();keys[k]=false;}
+},true);
+
+window.addEventListener('blur',function(){
+  Object.keys(keys).forEach(k=>keys[k]=false);
+});
+document.getElementById('bobHeadSoccer').addEventListener('contextmenu',function(e){e.preventDefault()});
+document.getElementById('bobHeadSoccer').addEventListener('selectstart',function(e){e.preventDefault()});
+document.getElementById('bobHeadSoccer').addEventListener('dragstart',function(e){e.preventDefault()});
+document.getElementById('bobHeadSoccer').addEventListener('touchstart',function(e){
+  if(e.target.closest('[data-key]')) e.preventDefault();
+},{passive:false});
+document.getElementById('bobHeadSoccer').addEventListener('touchmove',function(e){
+  if(e.target.closest('[data-key]') || e.target===c) e.preventDefault();
+},{passive:false});
+document.getElementById('bobHeadSoccer').addEventListener('touchend',function(e){
+  if(e.target.closest('[data-key]')) e.preventDefault();
+},{passive:false});
+
+document.querySelectorAll('#bobHeadSoccer [data-key]').forEach(function(b){
+  const k=b.dataset.key;
+  b.style.webkitUserSelect='none';
+  b.style.userSelect='none';
+  b.style.webkitTouchCallout='none';
+  b.style.touchAction='none';
+
+  function press(e){
+    if(e){e.preventDefault();e.stopPropagation();}
+    keys[k]=true;
+    b.classList.add('touching');
+  }
+  function release(e){
+    if(e){e.preventDefault();e.stopPropagation();}
+    keys[k]=false;
+    b.classList.remove('touching');
+  }
+
+  // iPhone/Safari: native touch events are handled directly instead of
+  // relying only on Pointer Events.
+  b.addEventListener('touchstart',press,{passive:false});
+  b.addEventListener('touchend',release,{passive:false});
+  b.addEventListener('touchcancel',release,{passive:false});
+
+  // Desktop + newer iOS.
+  b.addEventListener('pointerdown',press,{passive:false});
+  b.addEventListener('pointerup',release,{passive:false});
+  b.addEventListener('pointercancel',release,{passive:false});
+  b.addEventListener('lostpointercapture',function(){keys[k]=false;b.classList.remove('touching')});
+
+  b.addEventListener('mousedown',press,{passive:false});
+  b.addEventListener('mouseup',release,{passive:false});
+  b.addEventListener('mouseleave',function(){keys[k]=false;b.classList.remove('touching')});
+
+  b.addEventListener('contextmenu',function(e){e.preventDefault()});
+  b.addEventListener('dragstart',function(e){e.preventDefault()});
+});
 const bob=document.getElementById('homeBobButton');if(bob)bob.addEventListener('click',e=>{if(bob.dataset.bobArcadeReentry==='1')return;e.preventDefault();e.stopImmediatePropagation();show()},true);
+})();
+</script>
+
+
+<script>
+/* BOB PROFILE — persistence fix */
+(function(){
+  const panel = document.getElementById('homeProfilePanel');
+  const button = document.getElementById('homeProfileButton');
+  const input = document.getElementById('homeProfileUsername');
+  const photoInput = document.getElementById('homeProfilePhoto');
+  const preview = document.getElementById('homeProfilePreview');
+  const buttonImage = document.getElementById('homeProfileButtonImage');
+  const save = document.getElementById('homeProfileSave');
+
+  if(!panel || !button || !input) return;
+
+  function getUsername(){
+    return localStorage.getItem('bob_profile_username') || '';
+  }
+
+  function getPhoto(){
+    return localStorage.getItem('bob_profile_photo') || '';
+  }
+
+  function refreshProfile(){
+    const username = getUsername();
+    const photo = getPhoto();
+
+    input.value = username;
+
+    if(preview){
+      if(photo){
+        preview.src = photo;
+        preview.hidden = false;
+      }else{
+        preview.removeAttribute('src');
+        preview.hidden = true;
+      }
+    }
+
+    if(buttonImage){
+      if(photo){
+        buttonImage.src = photo;
+        buttonImage.hidden = false;
+      }else{
+        buttonImage.removeAttribute('src');
+        buttonImage.hidden = true;
+      }
+    }
+  }
+
+  // Always refill the fields immediately and every time the panel opens.
+  refreshProfile();
+
+  button.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    refreshProfile();
+    panel.hidden = !panel.hidden;
+  }, true);
+
+  if(save){
+    save.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+
+      const username = input.value.trim();
+
+      if(username){
+        localStorage.setItem('bob_profile_username', username);
+      }else{
+        localStorage.removeItem('bob_profile_username');
+      }
+
+      // Keep the currently selected photo if there is one.
+      if(photoInput && photoInput.files && photoInput.files[0]){
+        const file = photoInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(){
+          localStorage.setItem('bob_profile_photo', reader.result);
+          refreshProfile();
+          panel.hidden = true;
+        };
+        reader.readAsDataURL(file);
+      }else{
+        refreshProfile();
+        panel.hidden = true;
+      }
+    }, true);
+  }
+
+  if(photoInput){
+    photoInput.addEventListener('change', function(){
+      const file = photoInput.files && photoInput.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = function(){
+        if(preview){
+          preview.src = reader.result;
+          preview.hidden = false;
+        }
+        if(buttonImage){
+          buttonImage.src = reader.result;
+          buttonImage.hidden = false;
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Expose a safe refresh hook for the rest of BOB.
+  window.refreshBOBProfile = refreshProfile;
 })();
 </script>
 
