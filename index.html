@@ -1681,25 +1681,59 @@ const dataUri="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT
     else if(profile.uid!=="guest") arr.push({uid:profile.uid,username:profile.username,photo:profile.photo,score});
     arr.sort((a,b)=>Number(b.score)-Number(a.score));localStorage.setItem("bobDoodleLeaderboard",JSON.stringify(arr.slice(0,10)));
   }
+  async function syncOnlineDoodleProfile(profileArg){
+    const profile=profileArg||getDoodleProfile();
+    if(profile.uid==="guest" || !profile.uid) return false;
+    try{
+      const {data:old,error:readError}=await sb.from("doodle_leaderboard")
+        .select("score").eq("user_id",profile.uid).maybeSingle();
+      if(readError) throw readError;
+      const bestScore=Math.max(Number(localStorage.getItem("bobJumpBest")||0), old ? Number(old.score)||0 : 0);
+      const {error}=await sb.from("doodle_leaderboard").upsert({
+        user_id:profile.uid,
+        username:profile.username||"BOB",
+        profile_photo:profile.photo||null,
+        score:bestScore,
+        updated_at:new Date().toISOString()
+      },{onConflict:"user_id"});
+      if(error) throw error;
+      return true;
+    }catch(e){
+      console.error("BOB leaderboard: impossible d'enregistrer le profil",e);
+      return false;
+    }
+  }
+
   async function saveOnlineDoodleScore(profile){
     if(profile.uid==="guest")return;
     try{
-      const {data:old}=await sb.from("doodle_leaderboard").select("score").eq("user_id",profile.uid).maybeSingle();
+      const {data:old,error:readError}=await sb.from("doodle_leaderboard")
+        .select("score").eq("user_id",profile.uid).maybeSingle();
+      if(readError) throw readError;
       const bestScore=Math.max(score, old ? Number(old.score)||0 : 0);
       const {error}=await sb.from("doodle_leaderboard").upsert({
         user_id:profile.uid,
-        username:profile.username,
+        username:profile.username||"BOB",
         profile_photo:profile.photo||null,
         score:bestScore,
         updated_at:new Date().toISOString()
       },{onConflict:"user_id"});
       if(error)throw error;
-    }catch(e){console.warn("Leaderboard Doodle Jump:",e)}
+    }catch(e){console.error("Leaderboard Doodle Jump:",e)}
   }
   async function loadDoodleLeaderboard(){
     let rows=[];
-    try{const {data,error}=await sb.from("doodle_leaderboard").select("user_id,username,profile_photo,score").order("score",{ascending:false}).limit(10);if(!error&&data)rows=data}catch(e){}
-    if(!rows.length)rows=localDoodleScores();renderDoodleLeaderboard(rows);
+    try{
+      const {data,error}=await sb.from("doodle_leaderboard")
+        .select("user_id,username,profile_photo,score")
+        .order("score",{ascending:false}).limit(10);
+      if(error) throw error;
+      if(data) rows=data;
+    }catch(e){
+      console.error("BOB leaderboard: impossible de charger les joueurs",e);
+    }
+    if(!rows.length) rows=localDoodleScores();
+    renderDoodleLeaderboard(rows);
   }
   function renderDoodleLeaderboard(rows){
     if(!leaderboardEl)return;leaderboardList.innerHTML="";
@@ -3184,6 +3218,8 @@ const bob=document.getElementById('homeBobButton');if(bob)bob.addEventListener('
     const key = accountKey(kind);
     if(value) localStorage.setItem(key, value);
     else localStorage.removeItem(key);
+    // Le profil est aussi synchronisé avec le leaderboard Supabase.
+    if(typeof syncOnlineDoodleProfile === 'function') syncOnlineDoodleProfile();
   }
 
   function getUsername(){ return getStored('username'); }
