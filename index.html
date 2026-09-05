@@ -2980,6 +2980,7 @@ hideBootSplash();
     const save=document.getElementById('homeProfileSave');
     if(save) save.addEventListener('click',function(){
       if(img.src && !img.hidden){ const uid=(typeof user!=='undefined'&&user&&user.id)?user.id:'guest'; localStorage.setItem('bob_profile_photo_'+uid,img.src); }
+      if(typeof window.syncBOBProfileOnline==='function') window.syncBOBProfileOnline();
     });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
@@ -3194,6 +3195,43 @@ const bob=document.getElementById('homeBobButton');if(bob)bob.addEventListener('
   function getUsername(){ return getStored('username'); }
   function getPhoto(){ return getStored('photo'); }
 
+  // Synchronise le profil avec Supabase pour qu'il survive à la déconnexion/reconnexion.
+  async function syncProfileOnline(){
+    try{
+      if(typeof user==='undefined' || !user || !user.id || !window.sb) return;
+      const username=(getUsername()||'BOB').trim().slice(0,30)||'BOB';
+      const photo=getPhoto()||null;
+      const {data:old,error:readError}=await sb.from('doodle_leaderboard')
+        .select('score')
+        .eq('user_id',user.id)
+        .maybeSingle();
+      if(readError) throw readError;
+      const {error}=await sb.from('doodle_leaderboard').upsert({
+        user_id:user.id,
+        username,
+        profile_photo:photo,
+        score:old ? Number(old.score)||0 : 0,
+        updated_at:new Date().toISOString()
+      },{onConflict:'user_id'});
+      if(error) throw error;
+    }catch(err){ console.warn('BOB profil Supabase:',err); }
+  }
+
+  async function loadProfileOnline(){
+    try{
+      if(typeof user==='undefined' || !user || !user.id || !window.sb) return;
+      const {data,error}=await sb.from('doodle_leaderboard')
+        .select('username,profile_photo')
+        .eq('user_id',user.id)
+        .maybeSingle();
+      if(error) throw error;
+      if(data){
+        if(data.username) localStorage.setItem(accountKey('username'),data.username);
+        if(data.profile_photo) localStorage.setItem(accountKey('photo'),data.profile_photo);
+      }
+    }catch(err){ console.warn('BOB chargement profil Supabase:',err); }
+  }
+
   function refreshProfile(){
     const username = getUsername();
     const photo = getPhoto();
@@ -3220,9 +3258,15 @@ const bob=document.getElementById('homeBobButton');if(bob)bob.addEventListener('
       setStored('username', input.value.trim());
       if(photoInput && photoInput.files && photoInput.files[0]){
         const reader = new FileReader();
-        reader.onload=function(){ setStored('photo',reader.result); refreshProfile(); panel.hidden=true; };
+        reader.onload=async function(){
+          setStored('photo',reader.result);
+          await syncProfileOnline();
+          refreshProfile(); panel.hidden=true;
+        };
         reader.readAsDataURL(photoInput.files[0]);
-      }else{ refreshProfile(); panel.hidden=true; }
+      }else{
+        syncProfileOnline().finally(function(){ refreshProfile(); panel.hidden=true; });
+      }
     }, true);
   }
 
@@ -3238,11 +3282,21 @@ const bob=document.getElementById('homeBobButton');if(bob)bob.addEventListener('
     });
   }
 
-  // Après la reconnexion, user est enfin connu : on recharge le bon profil.
+  // Après la reconnexion, on récupère le profil sauvegardé sur Supabase puis on l'affiche.
   if(window.sb && sb.auth){
-    sb.auth.onAuthStateChange(function(){ setTimeout(refreshProfile,0); });
+    sb.auth.onAuthStateChange(function(_event,session){
+      if(session && session.user){
+        setTimeout(async function(){
+          await loadProfileOnline();
+          refreshProfile();
+        },50);
+      }else{
+        setTimeout(refreshProfile,0);
+      }
+    });
   }
   window.refreshBOBProfile=refreshProfile;
+  window.syncBOBProfileOnline=syncProfileOnline;
 })();
 </script>
 
