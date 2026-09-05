@@ -1665,8 +1665,13 @@ const dataUri="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT
 
   function getDoodleProfile(){
     const uid=(typeof user!=="undefined" && user && user.id)?user.id:"guest";
-    const username=localStorage.getItem("bob_profile_username_"+uid) || "BOB";
-    const photo=localStorage.getItem("bob_profile_photo_"+uid) || "";
+    let username=localStorage.getItem("bob_profile_username_"+uid) || "";
+    let photo=localStorage.getItem("bob_profile_photo_"+uid) || "";
+    // Compatibilité avec les anciens profils enregistrés avant la liaison par compte.
+    if(uid!=="guest"){
+      if(!username) username=localStorage.getItem("bob_profile_username") || "";
+      if(!photo) photo=localStorage.getItem("bob_profile_photo") || "";
+    }
     return {uid,username:username.trim().slice(0,30)||"BOB",photo};
   }
   function localDoodleScores(){try{return JSON.parse(localStorage.getItem("bobDoodleLeaderboard")||"[]").sort((a,b)=>Number(b.score)-Number(a.score)).slice(0,10)}catch(e){return []}}
@@ -1680,8 +1685,14 @@ const dataUri="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT
     if(profile.uid==="guest")return;
     try{
       const {data:old}=await sb.from("doodle_leaderboard").select("score").eq("user_id",profile.uid).maybeSingle();
-      if(old && Number(old.score)>=score)return;
-      const {error}=await sb.from("doodle_leaderboard").upsert({user_id:profile.uid,username:profile.username,photo:profile.photo||null,score,updated_at:new Date().toISOString()},{onConflict:"user_id"});
+      const bestScore=Math.max(score, old ? Number(old.score)||0 : 0);
+      const {error}=await sb.from("doodle_leaderboard").upsert({
+        user_id:profile.uid,
+        username:profile.username,
+        photo:profile.photo||null,
+        score:bestScore,
+        updated_at:new Date().toISOString()
+      },{onConflict:"user_id"});
       if(error)throw error;
     }catch(e){console.warn("Leaderboard Doodle Jump:",e)}
   }
@@ -1717,8 +1728,8 @@ const dataUri="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT
     player.y+=player.vy*dt;
     invincible=Math.max(0,invincible-dt);
     for(const b of fallingBobs){
-      b.y+=b.vy*dt;b.vy+=180*dt;b.rot+=dt*1.8;
-      if(b.y>H()+140){b.y=-100-Math.random()*180;b.x=20+Math.random()*Math.max(1,W()-72);b.vy=90+Math.random()*120;}
+      b.y+=b.vy*dt;b.vy+=70*dt;b.rot+=dt*1.8;
+      if(b.y>H()+140){b.y=-100-Math.random()*180;b.x=20+Math.random()*Math.max(1,W()-72);b.vy=45+Math.random()*55;}
       if(invincible<=0 && player.x+10<b.x+b.w-8 && player.x+player.w-10>b.x+8 && player.y+10<b.y+b.h-8 && player.y+player.h>b.y+8){
         burst(player.x+player.w/2,player.y+player.h/2,18);gameOver("UN BOB T'EST TOMBE DESSUS");return;
       }
@@ -1741,7 +1752,7 @@ const dataUri="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT
       const np={x:15+Math.random()*Math.max(1,W()-pw-15),y:ny,w:pw,h:12};
       platforms.push(np);
       if(Math.random()<.23)springs.push({x:np.x+np.w/2-13,y:np.y-18,w:26,h:18,used:false});
-      if(Math.random()<.16)fallingBobs.push({x:20+Math.random()*Math.max(1,W()-72),y:ny-220-Math.random()*180,w:52,h:52,vy:90+Math.random()*100,rot:0});
+      if(Math.random()<.08)fallingBobs.push({x:20+Math.random()*Math.max(1,W()-72),y:ny-220-Math.random()*180,w:52,h:52,vy:45+Math.random()*55,rot:0});
       minY=ny;
     }
     platforms=platforms.filter(p=>p.y<H()+90); springs=springs.filter(s=>s.y<H()+100);
