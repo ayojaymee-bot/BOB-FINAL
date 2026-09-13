@@ -3095,7 +3095,6 @@ hideBootSplash();
         <label class="bob-gameboy-bigload" for="bobGameBoyFile">CHOISIR UNE ROM</label>
       </div>
     </div>
-    <div class="bob-extra-help">LES ROMS RESTENT SUR TON APPAREIL • UTILISE UNIQUEMENT DES ROMS QUE TU AS LE DROIT D’UTILISER</div>
   </div>
 </div>
 
@@ -4651,36 +4650,106 @@ window.openBOBArcade=function(){ showOnly(choice); refreshHub(); };
 }
 </style>
 
+<style id="bob-gameboy-iphone-fix">
+/* Game Boy : zone tactile isolée pour iPhone / Safari */
+#bobGameBoy,
+#bobGameBoy .bob-gameboy-shell,
+#bobGameBoy .bob-gameboy-emulator,
+#bobGameBoy #gameboy-ejs,
+#bobGameBoy #gameboy-ejs iframe{
+  -webkit-user-select:none!important;
+  user-select:none!important;
+  -webkit-touch-callout:none!important;
+  overscroll-behavior:none!important;
+}
+#bobGameBoy{
+  touch-action:none!important;
+  -webkit-overflow-scrolling:auto!important;
+}
+#bobGameBoy .bob-gameboy-shell{
+  padding-bottom:calc(8px + env(safe-area-inset-bottom))!important;
+}
+#bobGameBoy .bob-gameboy-emulator{
+  touch-action:none!important;
+  overscroll-behavior:contain!important;
+}
+#bobGameBoy .bob-gameboy-emulator canvas,
+#bobGameBoy .bob-gameboy-emulator iframe,
+#bobGameBoy .bob-gameboy-emulator button,
+#bobGameBoy .bob-gameboy-emulator [role="button"]{
+  touch-action:none!important;
+  -webkit-user-select:none!important;
+  user-select:none!important;
+}
+#bobGameBoy .bob-extra-top button,
+#bobGameBoy .bob-gameboy-load{
+  touch-action:manipulation!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+#bobGameBoy .bob-gameboy-empty .bob-gameboy-bigload{
+  touch-action:manipulation!important;
+}
+@media(max-width:600px){
+  #bobGameBoy .bob-gameboy-shell{
+    width:96vw!important;
+    height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 10px)!important;
+    max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 10px)!important;
+    margin-top:env(safe-area-inset-top)!important;
+  }
+}
+</style>
 
 
 <script id="bob-gameboy-js">
 (function(){
   "use strict";
   const $=id=>document.getElementById(id);
-  const choice=$("bobGameChoice"), gameboy=$("bobGameBoy"), fileInput=$("bobGameBoyFile"), mount=$("bobGameBoyEmulator"), nameEl=$("bobGameBoyName");
+  const choice=$("bobGameChoice"), gameboy=$("bobGameBoy"), fileInput=$("bobGameBoyFile"),
+        mount=$("bobGameBoyEmulator"), nameEl=$("bobGameBoyName");
   if(!choice||!gameboy||!fileInput||!mount)return;
-  let romUrl=null, loader=null, loading=false;
+
+  let romUrl=null, loader=null, loading=false, bootToken=0;
 
   function emptyState(){
-    mount.innerHTML=`<div class="bob-gameboy-empty"><div class="bob-gameboy-pixel">GB</div><b>ÉMULATEUR GAME BOY</b><span>Choisis une ROM .GB ou .GBC pour commencer.</span><label class="bob-gameboy-bigload" for="bobGameBoyFile">CHOISIR UNE ROM</label></div>`;
+    mount.innerHTML='<div class="bob-gameboy-empty"><div class="bob-gameboy-pixel">GB</div><b>ÉMULATEUR GAME BOY</b><span>Choisis une ROM .GB ou .GBC pour commencer.</span><label class="bob-gameboy-bigload" for="bobGameBoyFile">CHOISIR UNE ROM</label></div>';
   }
+
   function stopEmulator(){
-    try{if(typeof window.EJS_terminate==='function')window.EJS_terminate();}catch(e){}
-    try{if(window.EJS&&typeof window.EJS.terminate==='function')window.EJS.terminate();}catch(e){}
-    if(loader&&loader.parentNode)loader.parentNode.removeChild(loader);
+    bootToken++;
+    loading=false;
+    try{ if(typeof window.EJS_terminate==="function") window.EJS_terminate(); }catch(e){}
+    try{ if(window.EJS && typeof window.EJS.terminate==="function") window.EJS.terminate(); }catch(e){}
+    try{ if(window.EJS_emulator && typeof window.EJS_emulator.exit==="function") window.EJS_emulator.exit(); }catch(e){}
+    if(loader && loader.parentNode) loader.parentNode.removeChild(loader);
     loader=null;
     mount.innerHTML='<div id="gameboy-ejs"></div>';
   }
+
   function loadRom(file){
     if(!file)return;
     const ok=/\.(gb|gbc)$/i.test(file.name);
-    if(!ok){alert("Choisis une ROM Game Boy .gb ou .gbc");fileInput.value="";return;}
-    if(loading)return;
+    if(!ok){
+      alert("Choisis une ROM Game Boy .gb ou .gbc");
+      fileInput.value="";
+      return;
+    }
+
+    const token=++bootToken;
     loading=true;
-    if(romUrl)URL.revokeObjectURL(romUrl);
-    romUrl=URL.createObjectURL(file);
+
+    if(romUrl){
+      try{URL.revokeObjectURL(romUrl);}catch(e){}
+      romUrl=null;
+    }
+
     stopEmulator();
+    if(token!==bootToken)return;
+
+    romUrl=URL.createObjectURL(file);
     nameEl.textContent=file.name.toUpperCase();
+
+    // Configuration officielle EmulatorJS pour Game Boy.
+    // "gb" sélectionne le core Gambatte.
     window.EJS_player="#gameboy-ejs";
     window.EJS_gameName=file.name.replace(/\.(gb|gbc)$/i,"");
     window.EJS_biosUrl="";
@@ -4689,34 +4758,79 @@ window.openBOBArcade=function(){ showOnly(choice); refreshHub(); };
     window.EJS_pathtodata="https://cdn.emulatorjs.org/stable/data/";
     window.EJS_startOnLoaded=true;
     window.EJS_askBeforeExit=false;
+    window.EJS_browserMode="mobile";
+    window.EJS_controlScheme="gb";
+    window.EJS_noAutoFocus=false;
+    window.EJS_backgroundColor="#000";
     window.EJS_disableDatabases=true;
+    window.EJS_onGameStart=function(){
+      loading=false;
+      nameEl.textContent=file.name.toUpperCase();
+      try{gameboy.setAttribute("data-running","1");}catch(e){}
+    };
+    window.EJS_ready=function(){
+      try{window.dispatchEvent(new Event("resize"));}catch(e){}
+    };
+
+    // Chaque lancement reçoit un conteneur neuf et un loader neuf.
     loader=document.createElement("script");
-    loader.src="https://cdn.emulatorjs.org/stable/data/loader.js";
-    loader.onload=()=>{loading=false;};
-    loader.onerror=()=>{loading=false;nameEl.textContent="ERREUR DE CHARGEMENT";alert("Impossible de charger l’émulateur Game Boy. Vérifie ta connexion internet.");};
+    loader.id="bob-emulatorjs-loader";
+    loader.src="https://cdn.emulatorjs.org/stable/data/loader.js?v=gb-ios";
+    loader.async=false;
+    loader.onload=()=>{
+      if(token===bootToken) loading=false;
+    };
+    loader.onerror=()=>{
+      if(token!==bootToken)return;
+      loading=false;
+      nameEl.textContent="ERREUR DE CHARGEMENT";
+      alert("Impossible de charger l’émulateur Game Boy. Vérifie ta connexion internet.");
+    };
     document.body.appendChild(loader);
   }
-  fileInput.addEventListener("change",()=>loadRom(fileInput.files&&fileInput.files[0]));
+
+  fileInput.addEventListener("change",()=>{
+    loadRom(fileInput.files&&fileInput.files[0]);
+  });
+
   window.loadDefaultBOBROM=function(){
     try{
       if(loading)return;
       const factory=window.__BOB_DEFAULT_ROM_URL_FACTORY;
-      if(typeof factory!=="function"){ setTimeout(window.loadDefaultBOBROM,150); return; }
+      if(typeof factory!=="function"){
+        setTimeout(window.loadDefaultBOBROM,100);
+        return;
+      }
+
       const url=factory();
-      fetch(url).then(r=>r.blob()).then(blob=>{
+      fetch(url).then(r=>{
+        if(!r.ok)throw new Error("ROM HTTP "+r.status);
+        return r.blob();
+      }).then(blob=>{
         try{URL.revokeObjectURL(url);}catch(e){}
-        const file=new File([blob],"Pokemon Red(2).gb",{type:"application/octet-stream"});
+        const file=new File([blob],"Pokemon Red BOB.gb",{type:"application/octet-stream"});
         loadRom(file);
       }).catch(err=>{
-        console.error(err);
+        console.error("BOB ROM:",err);
+        try{URL.revokeObjectURL(url);}catch(e){}
         nameEl.textContent="ERREUR ROM";
         alert("Impossible de charger la ROM Game Boy par défaut.");
       });
     }catch(err){
-      console.error(err);
+      console.error("BOB ROM:",err);
       alert("Impossible de préparer la ROM Game Boy par défaut.");
     }
   };
+
+  // Nettoyage propre quand on quitte la Game Boy.
+  window.stopBOBGameBoy=function(){
+    try{stopEmulator();}catch(e){}
+    try{gameboy.removeAttribute("data-running");}catch(e){}
+    nameEl.textContent="AUCUNE ROM";
+    fileInput.value="";
+    emptyState();
+  };
+
   emptyState();
 })();
 </script>
@@ -4731,27 +4845,25 @@ window.openBOBArcade=function(){ showOnly(choice); refreshHub(); };
   function openGame(el){
     if(!el)return;
     [choice,flappy,runner,gameboy,$("bobArcadeGarage"),$("bobArcadeChallenges")].forEach(x=>{
-      if(x) x.hidden=(x!==el);
+      if(x)x.hidden=(x!==el);
     });
-    el.removeAttribute("hidden");
+    el.hidden=false;
     el.style.display="flex";
     document.body.style.overflow="hidden";
-
-    // Important: the canvases were initialized while their overlays were hidden.
-    // Recalculate their real dimensions after they become visible.
+    document.documentElement.style.overscrollBehavior="none";
     requestAnimationFrame(()=>{
-      const canvas=el.querySelector("canvas");
-      if(canvas){
-        const r=canvas.getBoundingClientRect();
-        if(r.width>0 && r.height>0){
-          canvas.dispatchEvent(new Event("bob-visible"));
-          window.dispatchEvent(new Event("resize"));
-        }
+      window.dispatchEvent(new Event("resize"));
+      if(el===gameboy){
+        const em=gameboy.querySelector(".bob-gameboy-emulator");
+        if(em)em.scrollTop=0;
       }
     });
   }
 
   function closeGame(){
+    if(typeof window.stopBOBGameBoy==="function"){
+      try{window.stopBOBGameBoy();}catch(e){}
+    }
     [flappy,runner,gameboy].forEach(x=>{
       if(x){x.hidden=true;x.style.display="none";}
     });
@@ -4759,23 +4871,42 @@ window.openBOBArcade=function(){ showOnly(choice); refreshHub(); };
       choice.hidden=false;
       choice.style.display="flex";
     }
+    document.body.style.overflow="";
+    document.documentElement.style.overscrollBehavior="";
+    window.scrollTo(0,0);
   }
 
-  // Use direct handlers as a fallback instead of depending on event bubbling.
-  const fb=$("bobChooseFlappy");
-  const rb=$("bobChooseRunner");
-  const gb=$("bobChooseGameBoy");
-  if(fb) fb.onclick=function(e){e.preventDefault();e.stopPropagation();openGame(flappy);};
-  if(rb) rb.onclick=function(e){e.preventDefault();e.stopPropagation();openGame(runner);};
-  if(gb) gb.onclick=function(e){e.preventDefault();e.stopPropagation();openGame(gameboy);};
+  function launchGameBoy(e){
+    if(e){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+    openGame(gameboy);
+    // Keep the launch tied as closely as possible to the iPhone tap.
+    setTimeout(()=>{
+      if(typeof window.loadDefaultBOBROM==="function") window.loadDefaultBOBROM();
+    },0);
+  }
+
+  const fb=$("bobChooseFlappy"), rb=$("bobChooseRunner"), gb=$("bobChooseGameBoy");
+  if(fb)fb.onclick=function(e){e.preventDefault();e.stopPropagation();openGame(flappy);};
+  if(rb)rb.onclick=function(e){e.preventDefault();e.stopPropagation();openGame(runner);};
+  if(gb){
+    gb.style.touchAction="manipulation";
+    gb.addEventListener("touchend",launchGameBoy,{passive:false});
+    gb.addEventListener("pointerup",launchGameBoy,{passive:false});
+    gb.addEventListener("click",launchGameBoy,{passive:false});
+  }
 
   const fback=$("bobFlappyBack"), rback=$("bobRunnerBack"), gbback=$("bobGameBoyBack");
-  if(fback) fback.onclick=function(e){e.preventDefault();e.stopPropagation();closeGame();};
-  if(rback) rback.onclick=function(e){e.preventDefault();e.stopPropagation();closeGame();};
-  if(gbback) gbback.onclick=function(e){e.preventDefault();e.stopPropagation();closeGame();};
+  if(fback)fback.onclick=e=>{e.preventDefault();e.stopPropagation();closeGame();};
+  if(rback)rback.onclick=e=>{e.preventDefault();e.stopPropagation();closeGame();};
+  if(gbback){
+    gbback.style.touchAction="manipulation";
+    gbback.addEventListener("touchend",e=>{e.preventDefault();e.stopImmediatePropagation();closeGame();},{passive:false});
+    gbback.addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();closeGame();},{passive:false});
+  }
 
-  // The previous game code creates the play buttons, but these handlers make
-  // sure a tap always reaches them.
   ["bobFlappyStart","bobFlappyMode","bobRunnerStart","bobRunnerMode"].forEach(id=>{
     const b=$(id);
     if(b){
@@ -4784,32 +4915,28 @@ window.openBOBArcade=function(){ showOnly(choice); refreshHub(); };
     }
   });
 
-  // If the canvas was opened on a mobile browser, resize it once more after
-  // layout has settled.
+  // Isoler le tactile pendant l'émulation : aucun swipe de Safari ne doit
+  // faire défiler ou déplacer la page BOB.
+  if(gameboy){
+    ["touchstart","touchmove","touchend","touchcancel"].forEach(type=>{
+      gameboy.addEventListener(type,e=>{
+        if(e.target.closest("button,label,input") && type==="touchmove") return;
+        e.stopPropagation();
+        if(type==="touchmove")e.preventDefault();
+      },{passive:false});
+    });
+  }
+
   [flappy,runner,gameboy].forEach(el=>{
     if(!el)return;
     new MutationObserver(()=>{
       if(!el.hidden){
         requestAnimationFrame(()=>{
-          const c=el.querySelector("canvas");
-          if(c && c.getBoundingClientRect().width>0){
-            c.dispatchEvent(new Event("bob-visible"));
-          }
+          window.dispatchEvent(new Event("resize"));
         });
       }
     }).observe(el,{attributes:true,attributeFilter:["hidden","style"]});
   });
-
-  // Prevent an old overlay click handler from swallowing the new game cards.
-  if(choice){
-    choice.addEventListener("pointerup",function(e){
-      const b=e.target.closest("#bobChooseFlappy,#bobChooseRunner,#bobChooseGameBoy");
-      if(!b)return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      openGame(b.id==="bobChooseFlappy"?flappy:(b.id==="bobChooseRunner"?runner:gameboy));
-    },true);
-  }
 })();
 </script>
 
@@ -4879,7 +5006,7 @@ window.openBOBArcade=function(){ showOnly(choice); refreshHub(); };
   else refreshBobFace();
 })();
 </script>
-\n<style id="bob-upcoming-and-cover-final">\n/* Tous les jeux arcade sont temporairement marqués UPCOMING, sauf Game Boy. */\n#bobUpcoming{position:fixed;inset:0;z-index:200000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.94);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:20px;box-sizing:border-box}\n#bobUpcoming[hidden]{display:none}\n#bobUpcomingBox{width:min(86vw,420px);padding:42px 25px;background:#030303;color:#fff;border:2px solid #fff;box-shadow:9px 9px 0 #fff;text-align:center;font-family:"Courier New",monospace}\n#bobUpcomingTitle{font-size:34px;font-weight:900;letter-spacing:4px;margin-bottom:12px}\n#bobUpcomingSub{font-size:10px;color:#777;letter-spacing:2px;margin-bottom:26px}\n#bobUpcomingClose{background:#fff;color:#000;border:2px solid #fff;padding:12px 22px;font-weight:900;cursor:pointer}\n.player.expanded .mini-cover{width:150px;height:150px;left:50%;right:auto;top:42px;transform:translateX(-50%) !important;margin:0 !important;object-fit:cover;object-position:center center}\n@media(max-width:650px){.player.expanded .mini-cover{width:145px;height:145px;left:50%;transform:translateX(-50%) !important;object-position:center center}}\n</style>\n<div id="bobUpcoming" hidden><div id="bobUpcomingBox"><div id="bobUpcomingTitle">upcoming</div><button id="bobUpcomingClose">RETOUR</button></div></div>\n<script id="bob-upcoming-final-js">
+<style id="bob-upcoming-and-cover-final">/* Tous les jeux arcade sont temporairement marqués UPCOMING, sauf Game Boy. */#bobUpcoming{position:fixed;inset:0;z-index:200000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.94);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:20px;box-sizing:border-box}#bobUpcoming[hidden]{display:none}#bobUpcomingBox{width:min(86vw,420px);padding:42px 25px;background:#030303;color:#fff;border:2px solid #fff;box-shadow:9px 9px 0 #fff;text-align:center;font-family:"Courier New",monospace}#bobUpcomingTitle{font-size:34px;font-weight:900;letter-spacing:4px;margin-bottom:12px}#bobUpcomingSub{font-size:10px;color:#777;letter-spacing:2px;margin-bottom:26px}#bobUpcomingClose{background:#fff;color:#000;border:2px solid #fff;padding:12px 22px;font-weight:900;cursor:pointer}.player.expanded .mini-cover{width:150px;height:150px;left:50%;right:auto;top:42px;transform:translateX(-50%) !important;margin:0 !important;object-fit:cover;object-position:center center}@media(max-width:650px){.player.expanded .mini-cover{width:145px;height:145px;left:50%;transform:translateX(-50%) !important;object-position:center center}}</style><div id="bobUpcoming" hidden><div id="bobUpcomingBox"><div id="bobUpcomingTitle">upcoming</div><button id="bobUpcomingClose">RETOUR</button></div></div><script id="bob-upcoming-final-js">
 (function(){
  function init(){
   const modal=document.getElementById('bobUpcoming'),close=document.getElementById('bobUpcomingClose'),choice=document.getElementById('bobGameChoice');
@@ -4892,7 +5019,7 @@ window.openBOBArcade=function(){ showOnly(choice); refreshHub(); };
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
-</script>\n</body></html>
+</script></body></html>
 <style id="bob-eraser-logo">
 .bob{display:grid;place-items:center;overflow:hidden}
 .eraser-logo{position:relative;width:24px;height:14px;display:block;transform:rotate(-28deg);background:#fff;border:2px solid #111;box-sizing:border-box;image-rendering:pixelated}
